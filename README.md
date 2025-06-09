@@ -1,11 +1,12 @@
 # GoSplit
 
-GoSplit is a command-line tool that splits Go source code files into chunks, where each chunk contains a function or struct definition. The output chunks are intended to be used with embedding models.
+GoSplit is a command-line tool that splits Go source code files into chunks, where each chunk contains a function, struct definition, or method. The output chunks are intended to be used with embedding models.
 
 ## Features
 
-- Extracts standalone functions (excluding methods)
+- Extracts standalone functions
 - Extracts struct definitions
+- Extracts methods with their receiver types
 - Preserves comments and formatting
 - Outputs chunks as JSON lines
 
@@ -44,10 +45,11 @@ The tool outputs JSON Lines format (JSONL), where each line is a valid JSON obje
 
 ```json
 {
-  "content": "string",  // The complete function or struct definition
-  "type": "string",     // Either "function" or "struct"
-  "name": "string",     // The name of the function or struct
-  "file": "string"      // The name of the source file
+  "content": "string",  // The complete function, struct, or method definition
+  "type": "string",     // Either "function", "struct", or "method"
+  "name": "string",     // The name of the function, struct, or method
+  "file": "string",     // The name of the source file
+  "receiver": "string"  // The receiver type for methods (only present for methods)
 }
 ```
 
@@ -55,6 +57,7 @@ Example output:
 ```jsonl
 {"content":"func example() {\n    fmt.Println(\"Hello\")\n}","type":"function","name":"example","file":"main.go"}
 {"content":"type User struct {\n    Name string\n    Age  int\n}","type":"struct","name":"User","file":"main.go"}
+{"content":"func (u *User) Method() {\n    println(u.Name)\n}","type":"method","name":"Method","receiver":"*User","file":"main.go"}
 ```
 
 ## License

@@ -14,9 +14,11 @@ import (
 
 type Chunk struct {
 	Content string `json:"content"`
-	Type    string `json:"type"` // "function" or "struct"
+	Type    string `json:"type"` // "function", "struct", or "method"
 	Name    string `json:"name"`
 	File    string `json:"file"`
+	// For methods, store the receiver type
+	Receiver string `json:"receiver,omitempty"`
 }
 
 func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []Chunk {
@@ -26,21 +28,41 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []Chunk {
 	for _, decl := range file.Decls {
 		switch d := decl.(type) {
 		case *ast.FuncDecl:
-			// Skip methods (functions with receivers)
-			if d.Recv != nil {
-				continue
-			}
 			// Get the function name
 			name := d.Name.Name
+
 			// Get the function content
 			start := fset.Position(d.Pos()).Offset
 			end := fset.Position(d.End()).Offset
 			content := string(src[start:end])
-			chunks = append(chunks, Chunk{
-				Content: content,
-				Type:    "function",
-				Name:    name,
-			})
+
+			if d.Recv != nil {
+				// This is a method
+				// Get the receiver type
+				var receiverType string
+				switch t := d.Recv.List[0].Type.(type) {
+				case *ast.Ident:
+					receiverType = t.Name
+				case *ast.StarExpr:
+					if ident, ok := t.X.(*ast.Ident); ok {
+						receiverType = "*" + ident.Name
+					}
+				}
+
+				chunks = append(chunks, Chunk{
+					Content:  content,
+					Type:     "method",
+					Name:     name,
+					Receiver: receiverType,
+				})
+			} else {
+				// This is a standalone function
+				chunks = append(chunks, Chunk{
+					Content: content,
+					Type:    "function",
+					Name:    name,
+				})
+			}
 		case *ast.GenDecl:
 			// Process type declarations (structs)
 			if d.Tok == token.TYPE {

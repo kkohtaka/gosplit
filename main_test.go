@@ -47,17 +47,19 @@ func (s *GoSplitTestSuite) TestExtractChunks() {
 	// Extract chunks
 	chunks := extractChunks(file, content, fset)
 
-	// Verify the number of chunks (should be 2: one struct and one function, excluding the method)
-	assert.Len(s.T(), chunks, 2, "Expected 2 chunks")
+	// Verify the number of chunks (should be 3: one struct, one function, and one method)
+	assert.Len(s.T(), chunks, 3, "Expected 3 chunks")
 
 	// Verify the chunks
-	var structChunk, funcChunk *Chunk
+	var structChunk, funcChunk, methodChunk *Chunk
 	for i := range chunks {
 		switch chunks[i].Type {
 		case "struct":
 			structChunk = &chunks[i]
 		case "function":
 			funcChunk = &chunks[i]
+		case "method":
+			methodChunk = &chunks[i]
 		}
 	}
 
@@ -70,6 +72,12 @@ func (s *GoSplitTestSuite) TestExtractChunks() {
 	require.NotNil(s.T(), funcChunk, "Function chunk not found")
 	assert.Equal(s.T(), "Hello", funcChunk.Name, "Unexpected function name")
 	assert.Contains(s.T(), funcChunk.Content, "func Hello()", "Function content missing expected text")
+
+	// Verify method chunk
+	require.NotNil(s.T(), methodChunk, "Method chunk not found")
+	assert.Equal(s.T(), "Method", methodChunk.Name, "Unexpected method name")
+	assert.Equal(s.T(), "*User", methodChunk.Receiver, "Unexpected receiver type")
+	assert.Contains(s.T(), methodChunk.Content, "func (u *User) Method()", "Method content missing expected text")
 }
 
 func (s *GoSplitTestSuite) TestProcessFile() {
