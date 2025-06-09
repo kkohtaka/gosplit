@@ -12,13 +12,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type ChunkType string
+
+const (
+	ChunkTypeFunction ChunkType = "function"
+	ChunkTypeStruct   ChunkType = "struct"
+	ChunkTypeMethod   ChunkType = "method"
+)
+
 type Chunk struct {
-	Content string `json:"content"`
-	Type    string `json:"type"` // "function", "struct", or "method"
-	Name    string `json:"name"`
-	File    string `json:"file"`
-	// For methods, store the receiver type
-	Receiver string `json:"receiver,omitempty"`
+	Content  string    `json:"content"`
+	Type     ChunkType `json:"type"`
+	Name     string    `json:"name"`
+	File     string    `json:"file"`
+	Receiver string    `json:"receiver,omitempty"`
 }
 
 func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []Chunk {
@@ -51,7 +58,7 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []Chunk {
 
 				chunks = append(chunks, Chunk{
 					Content:  content,
-					Type:     "method",
+					Type:     ChunkTypeMethod,
 					Name:     name,
 					Receiver: receiverType,
 				})
@@ -59,7 +66,7 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []Chunk {
 				// This is a standalone function
 				chunks = append(chunks, Chunk{
 					Content: content,
-					Type:    "function",
+					Type:    ChunkTypeFunction,
 					Name:    name,
 				})
 			}
@@ -83,7 +90,7 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []Chunk {
 					content := string(src[start:end])
 					chunks = append(chunks, Chunk{
 						Content: content,
-						Type:    "struct",
+						Type:    ChunkTypeStruct,
 						Name:    name,
 					})
 				}
