@@ -7,8 +7,9 @@ GoSplit is a command-line tool that splits Go source code files into chunks, whe
 - Extracts standalone functions
 - Extracts struct definitions
 - Extracts methods with their receiver types
-- Preserves comments and formatting
+- Preserves doc strings and comments
 - Outputs chunks as JSON lines
+- Supports reading from a file and writing to a file or stdout
 
 ## Installation
 
@@ -19,7 +20,11 @@ go install github.com/kkohtaka/gosplit@latest
 ## Usage
 
 ```bash
-gosplit <input_file.go> [-output <output_file.jsonl>]
+# Read from a file and write to stdout
+gosplit input.go
+
+# Read from a file and write to a file
+gosplit -o output.jsonl input.go
 ```
 
 ### Arguments
@@ -41,24 +46,28 @@ gosplit main.go -output chunks.jsonl
 
 ### Output Format
 
-The tool outputs JSON Lines format (JSONL), where each line is a valid JSON object. Each JSON object has the following structure:
+The tool outputs JSON lines, where each line represents a chunk of code. Each chunk has the following structure:
 
 ```json
 {
-  "content": "string",  // The complete function, struct, or method definition
-  "type": "string",     // Either "function", "struct", or "method"
-  "name": "string",     // The name of the function, struct, or method
-  "file": "string",     // The name of the source file
-  "receiver": "string"  // The receiver type for methods (only present for methods)
+  "content": "// Function documentation\nfunc Add(a, b int) int {\n    return a + b\n}",
+  "type": "function",
+  "name": "Add",
+  "file": "input.go",
+  "receiver": "*User"  // Only present for methods
 }
 ```
 
-Example output:
-```jsonl
-{"content":"func example() {\n    fmt.Println(\"Hello\")\n}","type":"function","name":"example","file":"main.go"}
-{"content":"type User struct {\n    Name string\n    Age  int\n}","type":"struct","name":"User","file":"main.go"}
-{"content":"func (u *User) Method() {\n    println(u.Name)\n}","type":"method","name":"Method","receiver":"*User","file":"main.go"}
-```
+The `type` field can be one of:
+- `"function"`: A standalone function
+- `"struct"`: A struct definition
+- `"method"`: A method with a receiver
+
+The `content` field includes:
+- Doc strings (comments starting with `//` or `/*`)
+- Field-level comments for structs
+- Inline comments
+- The actual code
 
 ## License
 

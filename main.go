@@ -38,8 +38,13 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []Chunk {
 			// Get the function name
 			name := d.Name.Name
 
-			// Get the function content
-			start := fset.Position(d.Pos()).Offset
+			// Get the function content including doc strings
+			var start int
+			if d.Doc != nil {
+				start = fset.Position(d.Doc.Pos()).Offset
+			} else {
+				start = fset.Position(d.Pos()).Offset
+			}
 			end := fset.Position(d.End()).Offset
 			content := string(src[start:end])
 
@@ -84,10 +89,19 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []Chunk {
 					}
 					// Get the struct name
 					name := typeSpec.Name.Name
-					// Get the struct content
-					start := fset.Position(d.Pos()).Offset
+
+					// Get the struct content including doc strings
+					var start int
+					if d.Doc != nil {
+						start = fset.Position(d.Doc.Pos()).Offset
+					} else if typeSpec.Doc != nil {
+						start = fset.Position(typeSpec.Doc.Pos()).Offset
+					} else {
+						start = fset.Position(d.Pos()).Offset
+					}
 					end := fset.Position(d.End()).Offset
 					content := string(src[start:end])
+
 					chunks = append(chunks, Chunk{
 						Content: content,
 						Type:    ChunkTypeStruct,

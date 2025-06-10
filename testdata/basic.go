@@ -1,10 +1,12 @@
 package test
 
+import "fmt"
+
 type User struct {
 	Name string
 	Age  int
 }
 
 func Hello() {
-	println("Hello")
+	fmt.Println("Hello, world!")
 }
