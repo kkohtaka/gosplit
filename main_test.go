@@ -280,7 +280,7 @@ func generateContentWithTokens(t *testing.T, tokens int) string {
 	return content
 }
 
-func generateChunk(t *testing.T, lineSizes []int) Chunk {
+func generateChunk(t *testing.T, lineSizes []int) *Chunk {
 	var (
 		content string
 		sum     int
@@ -289,7 +289,7 @@ func generateChunk(t *testing.T, lineSizes []int) Chunk {
 		content += generateContentWithTokens(t, lineSize) + "\n"
 		sum += lineSize
 	}
-	return Chunk{Content: content, Size: sum}
+	return &Chunk{Content: content, Size: sum}
 }
 
 func (s *GoSplitTestSuite) TestSplitChunk() {

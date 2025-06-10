@@ -55,8 +55,8 @@ func countTokens(text string) (int, error) {
 	return len(encoding.Encode(text, nil, nil)), nil
 }
 
-func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []Chunk {
-	var chunks []Chunk
+func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []*Chunk {
+	var chunks []*Chunk
 
 	// Process declarations
 	for _, decl := range file.Decls {
@@ -88,7 +88,7 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []Chunk {
 					}
 				}
 
-				chunks = append(chunks, Chunk{
+				chunks = append(chunks, &Chunk{
 					Content:  content,
 					Type:     ChunkTypeMethod,
 					Name:     name,
@@ -96,7 +96,7 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []Chunk {
 				})
 			} else {
 				// This is a standalone function
-				chunks = append(chunks, Chunk{
+				chunks = append(chunks, &Chunk{
 					Content: content,
 					Type:    ChunkTypeFunction,
 					Name:    name,
@@ -128,7 +128,7 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []Chunk {
 					end := fset.Position(d.End()).Offset
 					content := string(src[start:end])
 
-					chunks = append(chunks, Chunk{
+					chunks = append(chunks, &Chunk{
 						Content: content,
 						Type:    ChunkTypeStruct,
 						Name:    name,
@@ -149,7 +149,7 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []Chunk {
 					chunkType = ChunkTypeConst
 				}
 
-				chunks = append(chunks, Chunk{
+				chunks = append(chunks, &Chunk{
 					Content: content,
 					Type:    chunkType,
 				})
@@ -159,7 +159,7 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []Chunk {
 	return chunks
 }
 
-func processFile(path string) ([]Chunk, error) {
+func processFile(path string) ([]*Chunk, error) {
 	fset := token.NewFileSet()
 	src, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
@@ -174,10 +174,10 @@ func processFile(path string) ([]Chunk, error) {
 	return extractChunks(file, src, fset), nil
 }
 
-func splitChunk(chunk Chunk, maxTokens int) ([]Chunk, error) {
+func splitChunk(chunk *Chunk, maxTokens int) ([]*Chunk, error) {
 	// If maxTokens is 0 or negative, return the original chunk
 	if maxTokens <= 0 {
-		return []Chunk{chunk}, nil
+		return []*Chunk{chunk}, nil
 	}
 
 	// Count tokens in the content
@@ -188,12 +188,12 @@ func splitChunk(chunk Chunk, maxTokens int) ([]Chunk, error) {
 
 	// If content is within limit, return as is
 	if tokenCount <= maxTokens {
-		return []Chunk{chunk}, nil
+		return []*Chunk{chunk}, nil
 	}
 
 	// Split content into lines
 	lines := strings.Split(chunk.Content, "\n")
-	var chunks []Chunk
+	var chunks []*Chunk
 	var currentChunk strings.Builder
 	currentTokenCount := 0
 
@@ -304,7 +304,7 @@ func run(cmd *cobra.Command, args []string) error {
 
 	// Split chunks based on token count if chunk size is specified
 	if chunkSize > 0 {
-		var splitChunks []Chunk
+		var splitChunks []*Chunk
 		for _, chunk := range chunks {
 			split, err := splitChunk(chunk, chunkSize)
 			if err != nil {
