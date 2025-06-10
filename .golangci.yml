@@ -77,7 +77,7 @@ settings:
 
 issues:
   exclude:
-    - path: _test\.go
+    - path: "_test.go"
   max-issues-per-linter: 0
   max-same-issues: 0
   new: false
@@ -93,4 +93,4 @@ output:
   format: colored-line-number
   print-issued-lines: true
   print-linter-name: true
-  uniq-by-line: false 
+  uniq-by-line: false
