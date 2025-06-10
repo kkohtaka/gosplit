@@ -8,7 +8,9 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/pkoukk/tiktoken-go"
 	"github.com/spf13/cobra"
 )
 
@@ -28,6 +30,18 @@ type Chunk struct {
 	Name     string    `json:"name,omitempty"`
 	File     string    `json:"file"`
 	Receiver string    `json:"receiver,omitempty"`
+	Size     int       `json:"size"`
+}
+
+// countTokens counts the number of tokens in the given text using the tiktoken library.
+// It uses the cl100k_base encoding, which is the same encoding used by GPT models.
+// Returns the number of tokens and any error that occurred during counting.
+func countTokens(text string) (int, error) {
+	encoding, err := tiktoken.GetEncoding("cl100k_base")
+	if err != nil {
+		return 0, fmt.Errorf("error getting encoding: %v", err)
+	}
+	return len(encoding.Encode(text, nil, nil)), nil
 }
 
 func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []Chunk {
@@ -153,13 +167,145 @@ func processFile(path string) ([]Chunk, error) {
 	return extractChunks(file, src, fset), nil
 }
 
+func splitChunk(chunk Chunk, maxTokens int) ([]Chunk, error) {
+	// If maxTokens is 0 or negative, return the original chunk
+	if maxTokens <= 0 {
+		return []Chunk{chunk}, nil
+	}
+
+	// Count tokens in the content
+	tokenCount, err := countTokens(chunk.Content)
+	if err != nil {
+		return nil, err
+	}
+
+	// If content is within limit, return as is
+	if tokenCount <= maxTokens {
+		return []Chunk{chunk}, nil
+	}
+
+	// Split content into lines
+	lines := strings.Split(chunk.Content, "\n")
+	var chunks []Chunk
+	var currentChunk strings.Builder
+	currentTokenCount := 0
+
+	for _, line := range lines {
+		lineTokenCount, err := countTokens(line)
+		if err != nil {
+			return nil, err
+		}
+
+		// If a single line exceeds the limit, we need to split it
+		if lineTokenCount > maxTokens {
+			// If we have accumulated content, create a chunk for it
+			if currentChunk.Len() > 0 {
+				newChunk := chunk
+				newChunk.Content = currentChunk.String()
+				newChunk.Size = currentTokenCount
+				chunks = append(chunks, newChunk)
+				currentChunk.Reset()
+				currentTokenCount = 0
+			}
+
+			// Split the long line into smaller chunks
+			words := strings.Fields(line)
+			var lineChunk strings.Builder
+			lineTokenCount = 0
+
+			for _, word := range words {
+				wordTokenCount, err := countTokens(word)
+				if err != nil {
+					return nil, err
+				}
+
+				if lineTokenCount+wordTokenCount > maxTokens {
+					if lineChunk.Len() > 0 {
+						newChunk := chunk
+						newChunk.Content = lineChunk.String()
+						newChunk.Size = lineTokenCount
+						chunks = append(chunks, newChunk)
+						lineChunk.Reset()
+						lineTokenCount = 0
+					}
+				}
+
+				if lineChunk.Len() > 0 {
+					lineChunk.WriteString(" ")
+				}
+				lineChunk.WriteString(word)
+				lineTokenCount += wordTokenCount
+			}
+
+			if lineChunk.Len() > 0 {
+				newChunk := chunk
+				newChunk.Content = lineChunk.String()
+				newChunk.Size = lineTokenCount
+				chunks = append(chunks, newChunk)
+			}
+			continue
+		}
+
+		// If adding this line would exceed the limit, create a new chunk
+		if currentTokenCount+lineTokenCount > maxTokens {
+			newChunk := chunk
+			newChunk.Content = currentChunk.String()
+			newChunk.Size = currentTokenCount
+			chunks = append(chunks, newChunk)
+			currentChunk.Reset()
+			currentTokenCount = 0
+		}
+
+		// Add the line to the current chunk
+		if currentChunk.Len() > 0 {
+			currentChunk.WriteString("\n")
+		}
+		currentChunk.WriteString(line)
+		currentTokenCount += lineTokenCount
+	}
+
+	// Add the last chunk if there's any content
+	if currentChunk.Len() > 0 {
+		newChunk := chunk
+		newChunk.Content = currentChunk.String()
+		newChunk.Size = currentTokenCount
+		chunks = append(chunks, newChunk)
+	}
+
+	return chunks, nil
+}
+
 func run(cmd *cobra.Command, args []string) error {
 	inputFile := args[0]
 	outputFile, _ := cmd.Flags().GetString("output")
+	chunkSize, _ := cmd.Flags().GetInt("chunk-size")
 
 	chunks, err := processFile(inputFile)
 	if err != nil {
 		return fmt.Errorf("error processing file: %v", err)
+	}
+
+	// Count tokens for each chunk
+	for i := range chunks {
+		tokenCount, err := countTokens(chunks[i].Content)
+		if err != nil {
+			// If token counting fails, set size to 0
+			tokenCount = 0
+		}
+		chunks[i].Size = tokenCount
+	}
+
+	// Split chunks based on token count if chunk size is specified
+	if chunkSize > 0 {
+		var splitChunks []Chunk
+		for _, chunk := range chunks {
+			split, err := splitChunk(chunk, chunkSize)
+			if err != nil {
+				return fmt.Errorf("error splitting chunk: %v", err)
+			}
+			splitChunks = append(splitChunks, split...)
+		}
+		chunks = splitChunks
 	}
 
 	// Determine output destination
@@ -204,6 +350,7 @@ The output chunks are intended to be used with embedding models.`,
 	}
 
 	rootCmd.Flags().StringP("output", "o", "", "Output file for JSON lines (default: stdout)")
+	rootCmd.Flags().Int("chunk-size", 0, "Maximum number of tokens per chunk (0 means no limit)")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

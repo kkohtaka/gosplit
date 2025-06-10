@@ -10,6 +10,7 @@ GoSplit is a command-line tool that splits Go source code files into chunks, whe
 - Extracts top-level constants and variables
 - Preserves doc strings and comments
 - Outputs JSON lines for easy processing
+- Controls maximum token size of chunks
 
 ## Installation
 
@@ -20,13 +21,14 @@ go install github.com/kkohtaka/gosplit@latest
 ## Usage
 
 ```bash
-gosplit <input_file.go> [-output <output_file.jsonl>]
+gosplit <input_file.go> [-output <output_file.jsonl>] [-chunk-size <max_tokens>]
 ```
 
 ### Arguments
 
 - `<input_file.go>`: Path to the input Go source file (required, positional argument)
 - `-output <output_file.jsonl>`: Path to the output file where JSON lines will be written (optional, defaults to stdout)
+- `-chunk-size <max_tokens>`: Maximum number of tokens per chunk (optional, defaults to 0 which means no limit)
 
 ### Examples
 
@@ -40,6 +42,11 @@ Write to a file:
 gosplit main.go -output chunks.jsonl
 ```
 
+Limit chunk size to 100 tokens:
+```bash
+gosplit main.go -chunk-size 100
+```
+
 ### Output Format
 
 The tool outputs JSON lines, where each line represents a chunk of code. Each chunk has the following structure:
@@ -50,7 +57,8 @@ The tool outputs JSON lines, where each line represents a chunk of code. Each ch
   "type": "function|struct|method|const|var",
   "name": "FunctionName",
   "file": "path/to/file.go",
-  "receiver": "ReceiverType"  // Only present for methods
+  "receiver": "ReceiverType",  // Only present for methods
+  "size": 42  // Number of tokens in the content
 }
 ```
 
@@ -60,6 +68,8 @@ The `type` field can be one of:
 - `method`: For methods with their receiver types
 - `const`: For constant declarations
 - `var`: For variable declarations
+
+The `size` field indicates the number of tokens in the chunk's content, as counted by the tiktoken library using the `cl100k_base` encoding.
 
 ## License
 

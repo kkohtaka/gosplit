@@ -1,12 +1,15 @@
 package main
 
 import (
+	"fmt"
 	"go/parser"
 	"go/token"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/pkoukk/tiktoken-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -243,6 +246,90 @@ func (s *GoSplitTestSuite) TestProcessFile() {
 
 	_, err = processFile(invalidFile)
 	assert.Error(s.T(), err, "Expected error for invalid Go file")
+}
+
+func generateContentWithTokens(t *testing.T, tokens int) string {
+	if tokens == 0 {
+		return ""
+	}
+
+	encoding, err := tiktoken.GetEncoding("cl100k_base")
+	require.NoError(t, err, "Failed to get encoding")
+
+	// Use a single word that we know the token count of
+	word := "token"
+	wordTokens := len(encoding.Encode(word, nil, nil))
+
+	// Calculate how many words we need
+	wordsNeeded := (tokens + wordTokens - 1) / wordTokens
+
+	// Generate the content with the exact number of words needed
+	content := strings.Repeat(word+" ", wordsNeeded-1) + word
+
+	// Verify the token count
+	tokenCount := len(encoding.Encode(content, nil, nil))
+	if tokenCount != tokens {
+		// If we're off by one, adjust by adding or removing a space
+		if tokenCount > tokens {
+			content = strings.TrimSuffix(content, " ")
+		} else {
+			content += " "
+		}
+	}
+
+	return content
+}
+
+func generateChunk(t *testing.T, lineSizes []int) Chunk {
+	var (
+		content string
+		sum     int
+	)
+	for _, lineSize := range lineSizes {
+		content += generateContentWithTokens(t, lineSize) + "\n"
+		sum += lineSize
+	}
+	return Chunk{Content: content, Size: sum}
+}
+
+func (s *GoSplitTestSuite) TestSplitChunk() {
+	tt := []struct {
+		lineSizes      []int
+		maxTokens      int
+		expectedChunks int
+	}{
+		{lineSizes: []int{9}, maxTokens: 10, expectedChunks: 1},
+		{lineSizes: []int{10}, maxTokens: 10, expectedChunks: 1},
+		{lineSizes: []int{11}, maxTokens: 10, expectedChunks: 2},
+		{lineSizes: []int{10, 4}, maxTokens: 15, expectedChunks: 1},
+		{lineSizes: []int{10, 5}, maxTokens: 15, expectedChunks: 1},
+		{lineSizes: []int{10, 6}, maxTokens: 15, expectedChunks: 2},
+		{lineSizes: []int{10, 14}, maxTokens: 15, expectedChunks: 2},
+		{lineSizes: []int{10, 15}, maxTokens: 15, expectedChunks: 2},
+		{lineSizes: []int{10, 16}, maxTokens: 15, expectedChunks: 3},
+		{lineSizes: []int{99}, maxTokens: 0, expectedChunks: 1},
+		// Edge cases
+		{lineSizes: []int{0}, maxTokens: 10, expectedChunks: 1},          // Empty content
+		{lineSizes: []int{0, 0, 0}, maxTokens: 10, expectedChunks: 1},    // Multiple empty lines
+		{lineSizes: []int{20}, maxTokens: 5, expectedChunks: 4},          // Single long line
+		{lineSizes: []int{20, 20, 20}, maxTokens: 5, expectedChunks: 12}, // Multiple long lines
+		{lineSizes: []int{5, 0, 5}, maxTokens: 10, expectedChunks: 1},    // Lines with empty line in between
+	}
+
+	for _, tt := range tt {
+		s.T().Run(fmt.Sprintf("chunkSizes=%+v, maxTokens=%d", tt.lineSizes, tt.maxTokens), func(t *testing.T) {
+			original := generateChunk(t, tt.lineSizes)
+			chunks, err := splitChunk(original, tt.maxTokens)
+			assert.NoError(t, err)
+			assert.Len(t, chunks, tt.expectedChunks)
+			for _, chunk := range chunks {
+				if tt.maxTokens > 0 {
+					assert.LessOrEqual(t, chunk.Size, tt.maxTokens)
+				}
+				assert.Contains(t, original.Content, chunk.Content)
+			}
+		})
+	}
 }
 
 func TestGoSplitSuite(t *testing.T) {
