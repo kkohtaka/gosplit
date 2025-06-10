@@ -1,0 +1,96 @@
+version: "2"
+
+linters:
+  enable:
+    - govet
+    - errcheck
+    - ineffassign
+    - unused
+    - misspell
+    - gosec
+    - revive
+    - gocyclo
+    - dupl
+    - goconst
+    - gocritic
+    - gochecknoinits
+    - gochecknoglobals
+    - unconvert
+    - unparam
+    - whitespace
+
+formatters:
+  settings:
+    gofmt:
+      level: error
+    goimports:
+      level: error
+
+settings:
+  gocyclo:
+    min-complexity: 15
+  dupl:
+    threshold: 100
+  goconst:
+    min-len: 2
+    min-occurrences: 3
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+  govet:
+    check-shadowing: true
+  misspell:
+    locale: US
+  revive:
+    rules:
+      - name: exported
+        arguments:
+          - disableStutteringCheck
+      - name: package-comments
+        severity: warning
+      - name: exported
+        severity: warning
+      - name: var-naming
+        severity: warning
+      - name: var-declaration
+        severity: warning
+      - name: package-comments
+        severity: warning
+      - name: range
+        severity: warning
+      - name: defer
+        severity: warning
+      - name: error-return
+        severity: warning
+      - name: error-strings
+        severity: warning
+      - name: receiver-naming
+        severity: warning
+      - name: indent-error-flow
+        severity: warning
+      - name: errorf
+        severity: warning
+
+issues:
+  exclude:
+    - path: _test\.go
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  new: false
+
+run:
+  timeout: 5m
+  tests: true
+  skip-dirs:
+    - vendor
+  go: "1.24"
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+  uniq-by-line: false 

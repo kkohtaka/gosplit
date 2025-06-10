@@ -1,3 +1,6 @@
+// Package main implements a command-line tool that splits Go source code files into chunks,
+// where each chunk contains a function, struct definition, method, constant, or variable.
+// The output chunks are intended to be used with embedding models.
 package main
 
 import (
@@ -14,23 +17,31 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// ChunkType represents the type of code chunk that can be extracted from a Go source file.
 type ChunkType string
 
 const (
+	// ChunkTypeFunction represents a standalone function declaration.
 	ChunkTypeFunction ChunkType = "function"
-	ChunkTypeStruct   ChunkType = "struct"
-	ChunkTypeMethod   ChunkType = "method"
-	ChunkTypeVar      ChunkType = "var"
-	ChunkTypeConst    ChunkType = "const"
+	// ChunkTypeStruct represents a struct type definition.
+	ChunkTypeStruct ChunkType = "struct"
+	// ChunkTypeMethod represents a method declaration with a receiver.
+	ChunkTypeMethod ChunkType = "method"
+	// ChunkTypeVar represents a variable declaration.
+	ChunkTypeVar ChunkType = "var"
+	// ChunkTypeConst represents a constant declaration.
+	ChunkTypeConst ChunkType = "const"
 )
 
+// Chunk represents a piece of Go source code that has been extracted from a file.
+// It contains metadata about the code such as its type, name, and size in tokens.
 type Chunk struct {
-	Content  string    `json:"content"`
-	Type     ChunkType `json:"type"`
-	Name     string    `json:"name,omitempty"`
-	File     string    `json:"file"`
-	Receiver string    `json:"receiver,omitempty"`
-	Size     int       `json:"size"`
+	Content  string    `json:"content"`            // The actual source code content
+	Type     ChunkType `json:"type"`               // The type of code (function, struct, method, etc.)
+	Name     string    `json:"name,omitempty"`     // The name of the function/struct/method
+	File     string    `json:"file"`               // The source file path
+	Receiver string    `json:"receiver,omitempty"` // The receiver type for methods
+	Size     int       `json:"size"`               // Number of tokens in the content
 }
 
 // countTokens counts the number of tokens in the given text using the tiktoken library.
@@ -108,13 +119,11 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []Chunk {
 					name := typeSpec.Name.Name
 
 					// Get the struct content including doc strings
-					var start int
+					start := fset.Position(d.Pos()).Offset
 					if d.Doc != nil {
 						start = fset.Position(d.Doc.Pos()).Offset
 					} else if typeSpec.Doc != nil {
 						start = fset.Position(typeSpec.Doc.Pos()).Offset
-					} else {
-						start = fset.Position(d.Pos()).Offset
 					}
 					end := fset.Position(d.End()).Offset
 					content := string(src[start:end])
@@ -128,11 +137,9 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []Chunk {
 			case token.VAR, token.CONST:
 				// Process variable and constant declarations
 				// Get the content including doc strings
-				var start int
+				start := fset.Position(d.Pos()).Offset
 				if d.Doc != nil {
 					start = fset.Position(d.Doc.Pos()).Offset
-				} else {
-					start = fset.Position(d.Pos()).Offset
 				}
 				end := fset.Position(d.End()).Offset
 				content := string(src[start:end])
@@ -154,7 +161,7 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []Chunk {
 
 func processFile(path string) ([]Chunk, error) {
 	fset := token.NewFileSet()
-	src, err := os.ReadFile(path)
+	src, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return nil, fmt.Errorf("error reading file: %v", err)
 	}
@@ -314,7 +321,7 @@ func run(cmd *cobra.Command, args []string) error {
 		output = os.Stdout
 	} else {
 		var err error
-		output, err = os.Create(outputFile)
+		output, err = os.Create(filepath.Clean(outputFile))
 		if err != nil {
 			return fmt.Errorf("error creating output file: %v", err)
 		}

@@ -28,10 +28,10 @@ func (s *GoSplitTestSuite) copyTestFile(name string) string {
 	src := filepath.Join("testdata", name)
 	dst := filepath.Join(s.tmpDir, name)
 
-	content, err := os.ReadFile(src)
+	content, err := os.ReadFile(filepath.Clean(src))
 	require.NoError(s.T(), err, "Failed to read test file")
 
-	err = os.WriteFile(dst, content, 0644)
+	err = os.WriteFile(dst, content, 0o600)
 	require.NoError(s.T(), err, "Failed to write test file")
 
 	return dst
@@ -39,7 +39,7 @@ func (s *GoSplitTestSuite) copyTestFile(name string) string {
 
 func (s *GoSplitTestSuite) TestExtractChunks() {
 	testFile := s.copyTestFile("basic.go")
-	content, err := os.ReadFile(testFile)
+	content, err := os.ReadFile(filepath.Clean(testFile))
 	require.NoError(s.T(), err, "Failed to read test file")
 
 	// Parse the test file
@@ -71,7 +71,7 @@ func (s *GoSplitTestSuite) TestExtractChunks() {
 
 func (s *GoSplitTestSuite) TestExtractChunksWithMethod() {
 	testFile := s.copyTestFile("with_method.go")
-	content, err := os.ReadFile(testFile)
+	content, err := os.ReadFile(filepath.Clean(testFile))
 	require.NoError(s.T(), err, "Failed to read test file")
 
 	// Parse the test file
@@ -104,7 +104,7 @@ func (s *GoSplitTestSuite) TestExtractChunksWithMethod() {
 
 func (s *GoSplitTestSuite) TestExtractChunksWithDocs() {
 	testFile := s.copyTestFile("with_docs.go")
-	content, err := os.ReadFile(testFile)
+	content, err := os.ReadFile(filepath.Clean(testFile))
 	require.NoError(s.T(), err, "Failed to read test file")
 
 	// Parse the test file
@@ -170,7 +170,7 @@ func (s *UserService) AddUser(u *User) error {
 
 func (s *GoSplitTestSuite) TestExtractChunksWithVars() {
 	testFile := s.copyTestFile("with_vars.go")
-	content, err := os.ReadFile(testFile)
+	content, err := os.ReadFile(filepath.Clean(testFile))
 	require.NoError(s.T(), err, "Failed to read test file")
 
 	// Parse the test file
@@ -241,7 +241,7 @@ func (s *GoSplitTestSuite) TestProcessFile() {
 
 	// Test with invalid Go file
 	invalidFile := filepath.Join(s.tmpDir, "invalid.go")
-	err = os.WriteFile(invalidFile, []byte("invalid go code"), 0644)
+	err = os.WriteFile(invalidFile, []byte("invalid go code"), 0o600)
 	require.NoError(s.T(), err, "Failed to write invalid test file")
 
 	_, err = processFile(invalidFile)
