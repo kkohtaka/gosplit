@@ -21,14 +21,14 @@ go install github.com/kkohtaka/gosplit@latest
 ## Usage
 
 ```bash
-gosplit <input_file.go> [-output <output_file.jsonl>] [-chunk-size <max_tokens>]
+gosplit <input_file.go> [--output <output_file.jsonl>] [--chunk-size <max_tokens>]
 ```
 
 ### Arguments
 
 - `<input_file.go>`: Path to the input Go source file (required, positional argument)
-- `-output <output_file.jsonl>`: Path to the output file where JSON lines will be written (optional, defaults to stdout)
-- `-chunk-size <max_tokens>`: Maximum number of tokens per chunk (optional, defaults to 0 which means no limit)
+- `--output <output_file.jsonl>`: Path to the output file where JSON lines will be written (optional, defaults to stdout)
+- `--chunk-size <max_tokens>`: Maximum number of tokens per chunk (optional, defaults to 0 which means no limit)
 
 ### Examples
 
@@ -39,12 +39,12 @@ gosplit main.go
 
 Write to a file:
 ```bash
-gosplit main.go -output chunks.jsonl
+gosplit main.go --output chunks.jsonl
 ```
 
 Limit chunk size to 100 tokens:
 ```bash
-gosplit main.go -chunk-size 100
+gosplit main.go --chunk-size 100
 ```
 
 ### Output Format
