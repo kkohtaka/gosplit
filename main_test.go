@@ -165,6 +165,72 @@ func (s *UserService) AddUser(u *User) error {
 	assert.Equal(s.T(), expectedAddUserMethod, chunks[3].Content, "Unexpected method content")
 }
 
+func (s *GoSplitTestSuite) TestExtractChunksWithVars() {
+	testFile := s.copyTestFile("with_vars.go")
+	content, err := os.ReadFile(testFile)
+	require.NoError(s.T(), err, "Failed to read test file")
+
+	// Parse the test file
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, testFile, content, parser.ParseComments)
+	require.NoError(s.T(), err, "Failed to parse test file")
+
+	// Extract chunks
+	chunks := extractChunks(file, content, fset)
+
+	// Verify the number of chunks
+	assert.Len(s.T(), chunks, 6, "Expected 6 chunks")
+
+	// Verify MaxRetries constant chunk
+	require.NotNil(s.T(), chunks[0], "Constant chunk not found")
+	assert.Empty(s.T(), chunks[0].Name, "Constant chunk shouldn't have name")
+	assert.Equal(s.T(), `// MaxRetries defines the maximum number of retry attempts
+const MaxRetries = 3`, chunks[0].Content, "Unexpected constant content")
+
+	// Verify DefaultTimeout constant chunk
+	require.NotNil(s.T(), chunks[1], "Constant chunk not found")
+	assert.Empty(s.T(), chunks[1].Name, "Constant chunk shouldn't have name")
+	assert.Equal(s.T(), `// DefaultTimeout specifies the default timeout in seconds
+const DefaultTimeout = 30`, chunks[1].Content, "Unexpected constant content")
+
+	// Verify error constants chunk
+	require.NotNil(s.T(), chunks[2], "Constant chunk not found")
+	assert.Empty(s.T(), chunks[2].Name, "Constant chunk shouldn't have name")
+	assert.Equal(s.T(), `// Error messages
+const (
+	ErrNotFound    = "not found"
+	ErrInvalidData = "invalid data"
+)`, chunks[2].Content, "Unexpected constant content")
+
+	// Verify Config variable chunk
+	require.NotNil(s.T(), chunks[3], "Variable chunk not found")
+	assert.Empty(s.T(), chunks[3].Name, "Variable chunk shouldn't have name")
+	assert.Equal(s.T(), `// Config holds application configuration
+var Config = struct {
+	Host string
+	Port int
+}{
+	Host: "localhost",
+	Port: 8080,
+}`, chunks[3].Content, "Unexpected variable content")
+
+	// Verify Debug variable chunk
+	require.NotNil(s.T(), chunks[4], "Variable chunk not found")
+	assert.Empty(s.T(), chunks[4].Name, "Variable chunk shouldn't have name")
+	assert.Equal(s.T(), `// Debug mode flag
+var Debug = false`, chunks[4].Content, "Unexpected variable content")
+
+	// Verify version variables chunk
+	require.NotNil(s.T(), chunks[5], "Variable chunk not found")
+	assert.Empty(s.T(), chunks[5].Name, "Variable chunk shouldn't have name")
+	assert.Equal(s.T(), `// Version information
+var (
+	Version    = "1.0.0"
+	BuildTime  = "2024-03-20"
+	CommitHash = "abc123"
+)`, chunks[5].Content, "Unexpected variable content")
+}
+
 func (s *GoSplitTestSuite) TestProcessFile() {
 	// Test with non-existent file
 	_, err := processFile("non_existent.go")

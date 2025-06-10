@@ -1,15 +1,15 @@
 # GoSplit
 
-GoSplit is a command-line tool that splits Go source code files into chunks, where each chunk contains a function, struct definition, or method. The output chunks are intended to be used with embedding models.
+GoSplit is a command-line tool that splits Go source code files into chunks, where each chunk contains a function, struct definition, method, constant, or variable. The output chunks are intended to be used with embedding models.
 
 ## Features
 
 - Extracts standalone functions
 - Extracts struct definitions
 - Extracts methods with their receiver types
+- Extracts top-level constants and variables
 - Preserves doc strings and comments
-- Outputs chunks as JSON lines
-- Supports reading from a file and writing to a file or stdout
+- Outputs JSON lines for easy processing
 
 ## Installation
 
@@ -20,11 +20,7 @@ go install github.com/kkohtaka/gosplit@latest
 ## Usage
 
 ```bash
-# Read from a file and write to stdout
-gosplit input.go
-
-# Read from a file and write to a file
-gosplit -o output.jsonl input.go
+gosplit <input_file.go> [-output <output_file.jsonl>]
 ```
 
 ### Arguments
@@ -50,24 +46,20 @@ The tool outputs JSON lines, where each line represents a chunk of code. Each ch
 
 ```json
 {
-  "content": "// Function documentation\nfunc Add(a, b int) int {\n    return a + b\n}",
-  "type": "function",
-  "name": "Add",
-  "file": "input.go",
-  "receiver": "*User"  // Only present for methods
+  "content": "// Function documentation\nfunc FunctionName() {\n    // function body\n}",
+  "type": "function|struct|method|const|var",
+  "name": "FunctionName",
+  "file": "path/to/file.go",
+  "receiver": "ReceiverType"  // Only present for methods
 }
 ```
 
 The `type` field can be one of:
-- `"function"`: A standalone function
-- `"struct"`: A struct definition
-- `"method"`: A method with a receiver
-
-The `content` field includes:
-- Doc strings (comments starting with `//` or `/*`)
-- Field-level comments for structs
-- Inline comments
-- The actual code
+- `function`: For standalone functions
+- `struct`: For struct definitions
+- `method`: For methods with their receiver types
+- `const`: For constant declarations
+- `var`: For variable declarations
 
 ## License
 

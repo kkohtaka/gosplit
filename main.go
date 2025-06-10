@@ -18,12 +18,14 @@ const (
 	ChunkTypeFunction ChunkType = "function"
 	ChunkTypeStruct   ChunkType = "struct"
 	ChunkTypeMethod   ChunkType = "method"
+	ChunkTypeVar      ChunkType = "var"
+	ChunkTypeConst    ChunkType = "const"
 )
 
 type Chunk struct {
 	Content  string    `json:"content"`
 	Type     ChunkType `json:"type"`
-	Name     string    `json:"name"`
+	Name     string    `json:"name,omitempty"`
 	File     string    `json:"file"`
 	Receiver string    `json:"receiver,omitempty"`
 }
@@ -31,7 +33,7 @@ type Chunk struct {
 func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []Chunk {
 	var chunks []Chunk
 
-	// Process function declarations
+	// Process declarations
 	for _, decl := range file.Decls {
 		switch d := decl.(type) {
 		case *ast.FuncDecl:
@@ -76,8 +78,9 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []Chunk {
 				})
 			}
 		case *ast.GenDecl:
-			// Process type declarations (structs)
-			if d.Tok == token.TYPE {
+			switch d.Tok {
+			case token.TYPE:
+				// Process type declarations (structs)
 				for _, spec := range d.Specs {
 					typeSpec, ok := spec.(*ast.TypeSpec)
 					if !ok {
@@ -108,6 +111,27 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []Chunk {
 						Name:    name,
 					})
 				}
+			case token.VAR, token.CONST:
+				// Process variable and constant declarations
+				// Get the content including doc strings
+				var start int
+				if d.Doc != nil {
+					start = fset.Position(d.Doc.Pos()).Offset
+				} else {
+					start = fset.Position(d.Pos()).Offset
+				}
+				end := fset.Position(d.End()).Offset
+				content := string(src[start:end])
+
+				chunkType := ChunkTypeVar
+				if d.Tok == token.CONST {
+					chunkType = ChunkTypeConst
+				}
+
+				chunks = append(chunks, Chunk{
+					Content: content,
+					Type:    chunkType,
+				})
 			}
 		}
 	}
