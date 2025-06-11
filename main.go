@@ -42,7 +42,7 @@ type Chunk struct {
 	Content  string    `json:"content"`            // The actual source code content
 	Type     ChunkType `json:"type"`               // The type of code (function, struct, method, etc.)
 	Name     string    `json:"name,omitempty"`     // The name of the function/struct/method
-	File     string    `json:"file"`               // The source file path
+	Path     string    `json:"path"`               // The source file path
 	Receiver string    `json:"receiver,omitempty"` // The receiver type for methods
 	Size     int       `json:"size"`               // Number of tokens in the content
 	Lang     string    `json:"lang"`               // The programming language of the chunk
@@ -349,7 +349,7 @@ func run(cmd *cobra.Command, args []string) error {
 	// Write chunks as JSON lines
 	encoder := json.NewEncoder(output)
 	for _, chunk := range chunks {
-		chunk.File = filepath.Base(inputFile)
+		chunk.Path = inputFile
 		if err := encoder.Encode(chunk); err != nil {
 			return fmt.Errorf("error writing chunk: %v", err)
 		}

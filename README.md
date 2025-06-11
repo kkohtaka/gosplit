@@ -56,7 +56,7 @@ The tool outputs JSON lines, where each line represents a chunk of code. Each ch
   "content": "// Function documentation\nfunc FunctionName() {\n    // function body\n}",
   "type": "function|struct|method|const|var",
   "name": "FunctionName",
-  "file": "path/to/file.go",
+  "path": "path/to/file.go",
   "receiver": "ReceiverType",  // Only present for methods
   "size": 42,  // Number of tokens in the content
   "lang": "go",  // Programming language of the chunk
