@@ -31,6 +31,9 @@ const (
 	ChunkTypeVar ChunkType = "var"
 	// ChunkTypeConst represents a constant declaration.
 	ChunkTypeConst ChunkType = "const"
+
+	// LangGo represents the Go programming language.
+	LangGo = "go"
 )
 
 // Chunk represents a piece of Go source code that has been extracted from a file.
@@ -42,6 +45,7 @@ type Chunk struct {
 	File     string    `json:"file"`               // The source file path
 	Receiver string    `json:"receiver,omitempty"` // The receiver type for methods
 	Size     int       `json:"size"`               // Number of tokens in the content
+	Lang     string    `json:"lang"`               // The programming language of the chunk
 }
 
 // countTokens counts the number of tokens in the given text using the tiktoken library.
@@ -93,6 +97,7 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []*Chunk {
 					Type:     ChunkTypeMethod,
 					Name:     name,
 					Receiver: receiverType,
+					Lang:     LangGo,
 				})
 			} else {
 				// This is a standalone function
@@ -100,6 +105,7 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []*Chunk {
 					Content: content,
 					Type:    ChunkTypeFunction,
 					Name:    name,
+					Lang:    LangGo,
 				})
 			}
 		case *ast.GenDecl:
@@ -132,6 +138,7 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []*Chunk {
 						Content: content,
 						Type:    ChunkTypeStruct,
 						Name:    name,
+						Lang:    LangGo,
 					})
 				}
 			case token.VAR, token.CONST:
@@ -152,6 +159,7 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []*Chunk {
 				chunks = append(chunks, &Chunk{
 					Content: content,
 					Type:    chunkType,
+					Lang:    LangGo,
 				})
 			}
 		}
