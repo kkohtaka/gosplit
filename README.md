@@ -59,7 +59,9 @@ The tool outputs JSON lines, where each line represents a chunk of code. Each ch
   "file": "path/to/file.go",
   "receiver": "ReceiverType",  // Only present for methods
   "size": 42,  // Number of tokens in the content
-  "lang": "go"  // Programming language of the chunk
+  "lang": "go",  // Programming language of the chunk
+  "start": 10,  // Starting line number of the content
+  "end": 15     // Ending line number of the content
 }
 ```
 

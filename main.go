@@ -46,6 +46,8 @@ type Chunk struct {
 	Receiver string    `json:"receiver,omitempty"` // The receiver type for methods
 	Size     int       `json:"size"`               // Number of tokens in the content
 	Lang     string    `json:"lang"`               // The programming language of the chunk
+	Start    int       `json:"start"`              // Starting line number of the content
+	End      int       `json:"end"`                // Ending line number of the content
 }
 
 // countTokens counts the number of tokens in the given text using the tiktoken library.
@@ -70,14 +72,12 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []*Chunk {
 			name := d.Name.Name
 
 			// Get the function content including doc strings
-			var start int
+			startPos := fset.Position(d.Pos())
 			if d.Doc != nil {
-				start = fset.Position(d.Doc.Pos()).Offset
-			} else {
-				start = fset.Position(d.Pos()).Offset
+				startPos = fset.Position(d.Doc.Pos())
 			}
-			end := fset.Position(d.End()).Offset
-			content := string(src[start:end])
+			endPos := fset.Position(d.End())
+			content := string(src[startPos.Offset:endPos.Offset])
 
 			if d.Recv != nil {
 				// This is a method
@@ -98,6 +98,8 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []*Chunk {
 					Name:     name,
 					Receiver: receiverType,
 					Lang:     LangGo,
+					Start:    startPos.Line,
+					End:      endPos.Line,
 				})
 			} else {
 				// This is a standalone function
@@ -106,6 +108,8 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []*Chunk {
 					Type:    ChunkTypeFunction,
 					Name:    name,
 					Lang:    LangGo,
+					Start:   startPos.Line,
+					End:     endPos.Line,
 				})
 			}
 		case *ast.GenDecl:
@@ -125,31 +129,33 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []*Chunk {
 					name := typeSpec.Name.Name
 
 					// Get the struct content including doc strings
-					start := fset.Position(d.Pos()).Offset
+					startPos := fset.Position(d.Pos())
 					if d.Doc != nil {
-						start = fset.Position(d.Doc.Pos()).Offset
+						startPos = fset.Position(d.Doc.Pos())
 					} else if typeSpec.Doc != nil {
-						start = fset.Position(typeSpec.Doc.Pos()).Offset
+						startPos = fset.Position(typeSpec.Doc.Pos())
 					}
-					end := fset.Position(d.End()).Offset
-					content := string(src[start:end])
+					endPos := fset.Position(d.End())
+					content := string(src[startPos.Offset:endPos.Offset])
 
 					chunks = append(chunks, &Chunk{
 						Content: content,
 						Type:    ChunkTypeStruct,
 						Name:    name,
 						Lang:    LangGo,
+						Start:   startPos.Line,
+						End:     endPos.Line,
 					})
 				}
 			case token.VAR, token.CONST:
 				// Process variable and constant declarations
 				// Get the content including doc strings
-				start := fset.Position(d.Pos()).Offset
+				startPos := fset.Position(d.Pos())
 				if d.Doc != nil {
-					start = fset.Position(d.Doc.Pos()).Offset
+					startPos = fset.Position(d.Doc.Pos())
 				}
-				end := fset.Position(d.End()).Offset
-				content := string(src[start:end])
+				endPos := fset.Position(d.End())
+				content := string(src[startPos.Offset:endPos.Offset])
 
 				chunkType := ChunkTypeVar
 				if d.Tok == token.CONST {
@@ -160,6 +166,8 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []*Chunk {
 					Content: content,
 					Type:    chunkType,
 					Lang:    LangGo,
+					Start:   startPos.Line,
+					End:     endPos.Line,
 				})
 			}
 		}
