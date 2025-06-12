@@ -47,30 +47,29 @@ func (s *GoSplitTestSuite) TestExtractChunks() {
 	file, err := parser.ParseFile(fset, testFile, content, parser.ParseComments)
 	require.NoError(s.T(), err, "Failed to parse test file")
 
-	// Extract chunks
-	chunks := extractChunks(file, content, fset)
-
-	// Verify the number of chunks
-	assert.Len(s.T(), chunks, 2, "Expected 2 chunks")
-
-	// Verify struct chunk
-	require.NotNil(s.T(), chunks[0], "Struct chunk not found")
-	assert.Equal(s.T(), "User", chunks[0].Name, "Unexpected struct name")
-	assert.Equal(s.T(), `type User struct {
+	assert.Equal(s.T(), []*Chunk{
+		{
+			Lang: "go",
+			Type: ChunkTypeStruct,
+			Name: "User",
+			Content: `type User struct {
 	Name string
 	Age  int
-}`, chunks[0].Content, "Unexpected struct content")
-	assert.Equal(s.T(), 5, chunks[0].Start, "Unexpected start line")
-	assert.Equal(s.T(), 8, chunks[0].End, "Unexpected end line")
-
-	// Verify function chunk
-	require.NotNil(s.T(), chunks[1], "Function chunk not found")
-	assert.Equal(s.T(), "Hello", chunks[1].Name, "Unexpected function name")
-	assert.Equal(s.T(), `func Hello() {
+}`,
+			Start: 5,
+			End:   8,
+		},
+		{
+			Lang: "go",
+			Type: ChunkTypeFunction,
+			Name: "Hello",
+			Content: `func Hello() {
 	fmt.Println("Hello, world!")
-}`, chunks[1].Content, "Unexpected function content")
-	assert.Equal(s.T(), 10, chunks[1].Start, "Unexpected start line")
-	assert.Equal(s.T(), 12, chunks[1].End, "Unexpected end line")
+}`,
+			Start: 10,
+			End:   12,
+		},
+	}, extractChunks(file, content, fset))
 }
 
 func (s *GoSplitTestSuite) TestExtractChunksWithMethod() {
@@ -83,31 +82,30 @@ func (s *GoSplitTestSuite) TestExtractChunksWithMethod() {
 	file, err := parser.ParseFile(fset, testFile, content, parser.ParseComments)
 	require.NoError(s.T(), err, "Failed to parse test file")
 
-	// Extract chunks
-	chunks := extractChunks(file, content, fset)
-
-	// Verify the number of chunks
-	assert.Len(s.T(), chunks, 2, "Expected 2 chunks")
-
-	// Verify struct chunk
-	require.NotNil(s.T(), chunks[0], "Struct chunk not found")
-	assert.Equal(s.T(), "User", chunks[0].Name, "Unexpected struct name")
-	assert.Equal(s.T(), `type User struct {
+	assert.Equal(s.T(), []*Chunk{
+		{
+			Lang: "go",
+			Type: ChunkTypeStruct,
+			Name: "User",
+			Content: `type User struct {
 	Name string
 	Age  int
-}`, chunks[0].Content, "Unexpected struct content")
-	assert.Equal(s.T(), 5, chunks[0].Start, "Unexpected start line")
-	assert.Equal(s.T(), 8, chunks[0].End, "Unexpected end line")
-
-	// Verify method chunk
-	require.NotNil(s.T(), chunks[1], "Method chunk not found")
-	assert.Equal(s.T(), "Method", chunks[1].Name, "Unexpected method name")
-	assert.Equal(s.T(), "*User", chunks[1].Receiver, "Unexpected receiver type")
-	assert.Equal(s.T(), `func (u *User) Method() {
+}`,
+			Start: 5,
+			End:   8,
+		},
+		{
+			Lang:     "go",
+			Type:     ChunkTypeMethod,
+			Name:     "Method",
+			Receiver: "*User",
+			Content: `func (u *User) Method() {
 	fmt.Printf("User: %s, Age: %d\n", u.Name, u.Age)
-}`, chunks[1].Content, "Unexpected method content")
-	assert.Equal(s.T(), 10, chunks[1].Start, "Unexpected start line")
-	assert.Equal(s.T(), 12, chunks[1].End, "Unexpected end line")
+}`,
+			Start: 10,
+			End:   12,
+		},
+	}, extractChunks(file, content, fset))
 }
 
 func (s *GoSplitTestSuite) TestExtractChunksWithDocs() {
@@ -120,68 +118,65 @@ func (s *GoSplitTestSuite) TestExtractChunksWithDocs() {
 	file, err := parser.ParseFile(fset, testFile, content, parser.ParseComments)
 	require.NoError(s.T(), err, "Failed to parse test file")
 
-	// Extract chunks
-	chunks := extractChunks(file, content, fset)
-
-	// Verify the number of chunks
-	assert.Len(s.T(), chunks, 4, "Expected 4 chunks")
-
-	// Verify User struct with doc strings
-	require.NotNil(s.T(), chunks[0], "User struct chunk not found")
-	assert.Equal(s.T(), ChunkTypeStruct, chunks[0].Type, "Unexpected chunk type")
-	expectedUserStruct := `// User represents a user in the system.
+	assert.Equal(s.T(), []*Chunk{
+		{
+			Lang: "go",
+			Type: ChunkTypeStruct,
+			Name: "User",
+			Content: `// User represents a user in the system.
 // It contains basic user information.
 type User struct {
 	// Name is the user's full name
 	Name string
 	// Age represents the user's age in years
 	Age int
-}`
-	assert.Equal(s.T(), expectedUserStruct, chunks[0].Content, "Unexpected struct content")
-	assert.Equal(s.T(), 4, chunks[0].Start, "Unexpected start line")
-	assert.Equal(s.T(), 11, chunks[0].End, "Unexpected end line")
-
-	// Verify NewUser function with doc strings
-	require.NotNil(s.T(), chunks[1], "NewUser function chunk not found")
-	assert.Equal(s.T(), ChunkTypeFunction, chunks[1].Type, "Unexpected chunk type")
-	expectedNewUserFunc := `// NewUser creates a new User instance.
+}`,
+			Start: 4,
+			End:   11,
+		},
+		{
+			Lang: "go",
+			Type: ChunkTypeFunction,
+			Name: "NewUser",
+			Content: `// NewUser creates a new User instance.
 // It validates the input parameters before creating the user.
 func NewUser(name string, age int) *User {
 	return &User{
 		Name: name,
 		Age:  age,
 	}
-}`
-	assert.Equal(s.T(), expectedNewUserFunc, chunks[1].Content, "Unexpected function content")
-	assert.Equal(s.T(), 13, chunks[1].Start, "Unexpected start line")
-	assert.Equal(s.T(), 20, chunks[1].End, "Unexpected end line")
-
-	// Verify UserService struct with doc strings
-	require.NotNil(s.T(), chunks[2], "UserService struct chunk not found")
-	assert.Equal(s.T(), ChunkTypeStruct, chunks[2].Type, "Unexpected chunk type")
-	expectedUserServiceStruct := `// UserService handles user-related operations.
+}`,
+			Start: 13,
+			End:   20,
+		},
+		{
+			Lang: "go",
+			Type: ChunkTypeStruct,
+			Name: "UserService",
+			Content: `// UserService handles user-related operations.
 type UserService struct {
 	// users stores all registered users
 	users []*User
-}`
-	assert.Equal(s.T(), expectedUserServiceStruct, chunks[2].Content, "Unexpected struct content")
-	assert.Equal(s.T(), 22, chunks[2].Start, "Unexpected start line")
-	assert.Equal(s.T(), 26, chunks[2].End, "Unexpected end line")
-
-	// Verify AddUser method with doc strings
-	require.NotNil(s.T(), chunks[3], "AddUser method chunk not found")
-	assert.Equal(s.T(), ChunkTypeMethod, chunks[3].Type, "Unexpected chunk type")
-	assert.Equal(s.T(), "*UserService", chunks[3].Receiver, "Unexpected receiver type")
-	expectedAddUserMethod := `// AddUser adds a new user to the service.
+}`,
+			Start: 22,
+			End:   26,
+		},
+		{
+			Lang:     "go",
+			Type:     ChunkTypeMethod,
+			Name:     "AddUser",
+			Receiver: "*UserService",
+			Content: `// AddUser adds a new user to the service.
 // It returns an error if the user is invalid.
 func (s *UserService) AddUser(u *User) error {
 	// TODO: implement validation
 	s.users = append(s.users, u)
 	return nil
-}`
-	assert.Equal(s.T(), expectedAddUserMethod, chunks[3].Content, "Unexpected method content")
-	assert.Equal(s.T(), 28, chunks[3].Start, "Unexpected start line")
-	assert.Equal(s.T(), 34, chunks[3].End, "Unexpected end line")
+}`,
+			Start: 28,
+			End:   34,
+		},
+	}, extractChunks(file, content, fset))
 }
 
 func (s *GoSplitTestSuite) TestExtractChunksWithVars() {
@@ -194,72 +189,69 @@ func (s *GoSplitTestSuite) TestExtractChunksWithVars() {
 	file, err := parser.ParseFile(fset, testFile, content, parser.ParseComments)
 	require.NoError(s.T(), err, "Failed to parse test file")
 
-	// Extract chunks
-	chunks := extractChunks(file, content, fset)
-
-	// Verify the number of chunks
-	assert.Len(s.T(), chunks, 6, "Expected 6 chunks")
-
-	// Verify MaxRetries constant chunk
-	require.NotNil(s.T(), chunks[0], "Constant chunk not found")
-	assert.Empty(s.T(), chunks[0].Name, "Constant chunk shouldn't have name")
-	assert.Equal(s.T(), `// MaxRetries defines the maximum number of retry attempts
-const MaxRetries = 3`, chunks[0].Content, "Unexpected constant content")
-	assert.Equal(s.T(), 3, chunks[0].Start, "Unexpected start line")
-	assert.Equal(s.T(), 4, chunks[0].End, "Unexpected end line")
-
-	// Verify DefaultTimeout constant chunk
-	require.NotNil(s.T(), chunks[1], "Constant chunk not found")
-	assert.Empty(s.T(), chunks[1].Name, "Constant chunk shouldn't have name")
-	assert.Equal(s.T(), `// DefaultTimeout specifies the default timeout in seconds
-const DefaultTimeout = 30`, chunks[1].Content, "Unexpected constant content")
-	assert.Equal(s.T(), 6, chunks[1].Start, "Unexpected start line")
-	assert.Equal(s.T(), 7, chunks[1].End, "Unexpected end line")
-
-	// Verify error constants chunk
-	require.NotNil(s.T(), chunks[2], "Constant chunk not found")
-	assert.Empty(s.T(), chunks[2].Name, "Constant chunk shouldn't have name")
-	assert.Equal(s.T(), `// Error messages
+	assert.Equal(s.T(), []*Chunk{
+		{
+			Lang: "go",
+			Type: ChunkTypeConst,
+			Content: `// MaxRetries defines the maximum number of retry attempts
+const MaxRetries = 3`,
+			Start: 3,
+			End:   4,
+		},
+		{
+			Lang: "go",
+			Type: ChunkTypeConst,
+			Content: `// DefaultTimeout specifies the default timeout in seconds
+const DefaultTimeout = 30`,
+			Start: 6,
+			End:   7,
+		},
+		{
+			Lang: "go",
+			Type: ChunkTypeConst,
+			Content: `// Error messages
 const (
 	ErrNotFound    = "not found"
 	ErrInvalidData = "invalid data"
-)`, chunks[2].Content, "Unexpected constant content")
-	assert.Equal(s.T(), 9, chunks[2].Start, "Unexpected start line")
-	assert.Equal(s.T(), 13, chunks[2].End, "Unexpected end line")
-
-	// Verify Config variable chunk
-	require.NotNil(s.T(), chunks[3], "Variable chunk not found")
-	assert.Empty(s.T(), chunks[3].Name, "Variable chunk shouldn't have name")
-	assert.Equal(s.T(), `// Config holds application configuration
+)`,
+			Start: 9,
+			End:   13,
+		},
+		{
+			Lang: "go",
+			Type: ChunkTypeVar,
+			Content: `// Config holds application configuration
 var Config = struct {
 	Host string
 	Port int
 }{
 	Host: "localhost",
 	Port: 8080,
-}`, chunks[3].Content, "Unexpected variable content")
-	assert.Equal(s.T(), 15, chunks[3].Start, "Unexpected start line")
-	assert.Equal(s.T(), 22, chunks[3].End, "Unexpected end line")
-
-	// Verify Debug variable chunk
-	require.NotNil(s.T(), chunks[4], "Variable chunk not found")
-	assert.Empty(s.T(), chunks[4].Name, "Variable chunk shouldn't have name")
-	assert.Equal(s.T(), `// Debug mode flag
-var Debug = false`, chunks[4].Content, "Unexpected variable content")
-	assert.Equal(s.T(), 24, chunks[4].Start, "Unexpected start line")
-	assert.Equal(s.T(), 25, chunks[4].End, "Unexpected end line")
-
-	// Verify version variables chunk
-	require.NotNil(s.T(), chunks[5], "Variable chunk not found")
-	assert.Empty(s.T(), chunks[5].Name, "Variable chunk shouldn't have name")
-	assert.Equal(s.T(), `// Version information
+}`,
+			Start: 15,
+			End:   22,
+		},
+		{
+			Lang: "go",
+			Type: ChunkTypeVar,
+			Content: `// Debug mode flag
+var Debug = false`,
+			Start: 24,
+			End:   25,
+		},
+		{
+			Lang: "go",
+			Type: ChunkTypeVar,
+			Content: `// Version information
 var (
 	Version    = "1.0.0"
 	BuildTime  = "2024-03-20"
 	CommitHash = "abc123"
-)`, chunks[5].Content, "Unexpected variable content")
-	assert.Equal(s.T(), 27, chunks[5].Start, "Unexpected start line")
-	assert.Equal(s.T(), 32, chunks[5].End, "Unexpected end line")
+)`,
+			Start: 27,
+			End:   32,
+		},
+	}, extractChunks(file, content, fset))
 }
 
 func (s *GoSplitTestSuite) TestProcessFile() {
