@@ -18,6 +18,7 @@ linters:
     - unconvert
     - unparam
     - whitespace
+    - staticcheck
   settings:
     gocyclo:
       min-complexity: 20
