@@ -48,8 +48,6 @@ linters:
           severity: warning
         - name: var-declaration
           severity: warning
-        - name: package-comments
-          severity: warning
         - name: range
           severity: warning
         - name: defer
