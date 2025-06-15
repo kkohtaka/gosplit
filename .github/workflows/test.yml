@@ -27,6 +27,10 @@ jobs:
       uses: golangci/golangci-lint-action@v8
       with:
         version: latest
+        args: --fix
+
+    - name: Fail if formatting changed files
+      run: git diff --exit-code
 
     - name: Run tests
       run: go test -v -race ./... 
