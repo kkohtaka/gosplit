@@ -61,135 +61,147 @@ func countTokens(text string) (int, error) {
 	return len(encoding.Encode(text, nil, nil)), nil
 }
 
+func processFuncDecl(d *ast.FuncDecl, src []byte, fset *token.FileSet) *Chunk {
+	// Get the function name
+	name := d.Name.Name
+
+	// Get the function content including doc strings
+	start := d.Pos()
+	end := d.End()
+
+	if d.Doc != nil {
+		start = min(start, d.Doc.Pos())
+		end = max(end, d.Doc.End())
+	}
+
+	startPos := fset.Position(start)
+	endPos := fset.Position(end)
+	content := string(src[startPos.Offset:endPos.Offset])
+
+	if d.Recv != nil && len(d.Recv.List) > 0 {
+		// This is a method
+		receiverType := getReceiverType(d.Recv.List[0].Type)
+		return &Chunk{
+			Content:  content,
+			Type:     ChunkTypeMethod,
+			Name:     name,
+			Receiver: receiverType,
+			Lang:     LangGo,
+			Start:    startPos.Line,
+			End:      endPos.Line,
+		}
+	}
+
+	// This is a standalone function
+	return &Chunk{
+		Content: content,
+		Type:    ChunkTypeFunction,
+		Name:    name,
+		Lang:    LangGo,
+		Start:   startPos.Line,
+		End:     endPos.Line,
+	}
+}
+
+func getReceiverType(expr ast.Expr) string {
+	switch t := expr.(type) {
+	case *ast.Ident:
+		return t.Name
+	case *ast.StarExpr:
+		if ident, ok := t.X.(*ast.Ident); ok {
+			return "*" + ident.Name
+		}
+	}
+	return ""
+}
+
+func processTypeDecl(d *ast.GenDecl, src []byte, fset *token.FileSet) []*Chunk {
+	var chunks []*Chunk
+	for _, spec := range d.Specs {
+		typeSpec, ok := spec.(*ast.TypeSpec)
+		if !ok {
+			continue
+		}
+		_, ok = typeSpec.Type.(*ast.StructType)
+		if !ok {
+			continue
+		}
+
+		name := typeSpec.Name.Name
+		startPos := fset.Position(d.Pos())
+		if d.Doc != nil {
+			startPos = fset.Position(d.Doc.Pos())
+		} else if typeSpec.Doc != nil {
+			startPos = fset.Position(typeSpec.Doc.Pos())
+		}
+		endPos := fset.Position(d.End())
+		content := string(src[startPos.Offset:endPos.Offset])
+
+		chunks = append(chunks, &Chunk{
+			Content: content,
+			Type:    ChunkTypeStruct,
+			Name:    name,
+			Lang:    LangGo,
+			Start:   startPos.Line,
+			End:     endPos.Line,
+		})
+	}
+	return chunks
+}
+
+func processVarConstDecl(d *ast.GenDecl, src []byte, fset *token.FileSet) *Chunk {
+	start := d.Pos()
+	end := d.End()
+
+	if d.Doc != nil {
+		start = min(start, d.Doc.Pos())
+		end = max(end, d.Doc.End())
+	}
+	if len(d.Specs) > 0 {
+		if v, ok := d.Specs[len(d.Specs)-1].(*ast.ValueSpec); ok {
+			if v.Comment != nil && len(v.Comment.List) > 0 {
+				end = max(end, v.Comment.List[len(v.Comment.List)-1].End())
+			}
+		}
+	}
+	if d.Lparen.IsValid() {
+		start = min(start, d.Lparen)
+	}
+	if d.Rparen.IsValid() {
+		end = max(end, d.Rparen)
+	}
+
+	startPos := fset.Position(start)
+	endPos := fset.Position(end)
+	content := string(src[startPos.Offset:endPos.Offset])
+
+	chunkType := ChunkTypeVar
+	if d.Tok == token.CONST {
+		chunkType = ChunkTypeConst
+	}
+
+	return &Chunk{
+		Content: content,
+		Type:    chunkType,
+		Lang:    LangGo,
+		Start:   startPos.Line,
+		End:     endPos.Line,
+	}
+}
+
 func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []*Chunk {
 	var chunks []*Chunk
 
-	// Process declarations
 	for _, decl := range file.Decls {
 		switch d := decl.(type) {
 		case *ast.FuncDecl:
-			// Get the function name
-			name := d.Name.Name
-
-			// Get the function content including doc strings
-			left := d.Pos()
-			right := d.End()
-
-			if d.Doc != nil {
-				left = min(left, d.Doc.Pos())
-				right = max(right, d.Doc.End())
-			}
-
-			startPos := fset.Position(left)
-			endPos := fset.Position(right)
-
-			content := string(src[startPos.Offset:endPos.Offset])
-
-			if d.Recv != nil && len(d.Recv.List) > 0 {
-				// This is a method
-				// Get the receiver type
-				var receiverType string
-				switch t := d.Recv.List[0].Type.(type) {
-				case *ast.Ident:
-					receiverType = t.Name
-				case *ast.StarExpr:
-					if ident, ok := t.X.(*ast.Ident); ok {
-						receiverType = "*" + ident.Name
-					}
-				}
-
-				chunks = append(chunks, &Chunk{
-					Content:  content,
-					Type:     ChunkTypeMethod,
-					Name:     name,
-					Receiver: receiverType,
-					Lang:     LangGo,
-					Start:    startPos.Line,
-					End:      endPos.Line,
-				})
-			} else {
-				// This is a standalone function
-				chunks = append(chunks, &Chunk{
-					Content: content,
-					Type:    ChunkTypeFunction,
-					Name:    name,
-					Lang:    LangGo,
-					Start:   startPos.Line,
-					End:     endPos.Line,
-				})
-			}
+			chunks = append(chunks, processFuncDecl(d, src, fset))
 		case *ast.GenDecl:
 			switch d.Tok {
 			case token.TYPE:
-				// Process type declarations (structs)
-				for _, spec := range d.Specs {
-					typeSpec, ok := spec.(*ast.TypeSpec)
-					if !ok {
-						continue
-					}
-					_, ok = typeSpec.Type.(*ast.StructType)
-					if !ok {
-						continue
-					}
-					// Get the struct name
-					name := typeSpec.Name.Name
-
-					// Get the struct content including doc strings
-					startPos := fset.Position(d.Pos())
-					if d.Doc != nil {
-						startPos = fset.Position(d.Doc.Pos())
-					} else if typeSpec.Doc != nil {
-						startPos = fset.Position(typeSpec.Doc.Pos())
-					}
-					endPos := fset.Position(d.End())
-					content := string(src[startPos.Offset:endPos.Offset])
-
-					chunks = append(chunks, &Chunk{
-						Content: content,
-						Type:    ChunkTypeStruct,
-						Name:    name,
-						Lang:    LangGo,
-						Start:   startPos.Line,
-						End:     endPos.Line,
-					})
-				}
+				chunks = append(chunks, processTypeDecl(d, src, fset)...)
 			case token.VAR, token.CONST:
-				left := d.Pos()
-				right := d.End()
-
-				if d.Doc != nil {
-					left = min(left, d.Doc.Pos())
-				}
-
-				if len(d.Specs) > 0 {
-					if v, ok := d.Specs[len(d.Specs)-1].(*ast.ValueSpec); ok {
-						if v.Comment != nil && len(v.Comment.List) > 0 {
-							right = max(right, v.Comment.List[len(v.Comment.List)-1].End())
-						}
-					}
-				}
-
-				if d.Rparen.IsValid() {
-					right = max(right, d.Rparen)
-				}
-
-				startPos := fset.Position(left)
-				endPos := fset.Position(right)
-
-				content := string(src[startPos.Offset:endPos.Offset])
-
-				chunkType := ChunkTypeVar
-				if d.Tok == token.CONST {
-					chunkType = ChunkTypeConst
-				}
-
-				chunks = append(chunks, &Chunk{
-					Content: content,
-					Type:    chunkType,
-					Lang:    LangGo,
-					Start:   startPos.Line,
-					End:     endPos.Line,
-				})
+				chunks = append(chunks, processVarConstDecl(d, src, fset))
 			}
 		}
 	}
