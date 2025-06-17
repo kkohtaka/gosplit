@@ -72,14 +72,20 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []*Chunk {
 			name := d.Name.Name
 
 			// Get the function content including doc strings
-			startPos := fset.Position(d.Pos())
+			left := d.Pos()
+			right := d.End()
+
 			if d.Doc != nil {
-				startPos = fset.Position(d.Doc.Pos())
+				left = min(left, d.Doc.Pos())
+				right = max(right, d.Doc.End())
 			}
-			endPos := fset.Position(d.End())
+
+			startPos := fset.Position(left)
+			endPos := fset.Position(right)
+
 			content := string(src[startPos.Offset:endPos.Offset])
 
-			if d.Recv != nil {
+			if d.Recv != nil && len(d.Recv.List) > 0 {
 				// This is a method
 				// Get the receiver type
 				var receiverType string
@@ -148,13 +154,28 @@ func extractChunks(file *ast.File, src []byte, fset *token.FileSet) []*Chunk {
 					})
 				}
 			case token.VAR, token.CONST:
-				// Process variable and constant declarations
-				// Get the content including doc strings
-				startPos := fset.Position(d.Pos())
+				left := d.Pos()
+				right := d.End()
+
 				if d.Doc != nil {
-					startPos = fset.Position(d.Doc.Pos())
+					left = min(left, d.Doc.Pos())
 				}
-				endPos := fset.Position(d.End())
+
+				if len(d.Specs) > 0 {
+					if v, ok := d.Specs[len(d.Specs)-1].(*ast.ValueSpec); ok {
+						if v.Comment != nil && len(v.Comment.List) > 0 {
+							right = max(right, v.Comment.List[len(v.Comment.List)-1].End())
+						}
+					}
+				}
+
+				if d.Rparen.IsValid() {
+					right = max(right, d.Rparen)
+				}
+
+				startPos := fset.Position(left)
+				endPos := fset.Position(right)
+
 				content := string(src[startPos.Offset:endPos.Offset])
 
 				chunkType := ChunkTypeVar
