@@ -17,7 +17,6 @@ linters:
     - gochecknoglobals
     - unconvert
     - unparam
-    - whitespace
     - staticcheck
   settings:
     gocyclo:
